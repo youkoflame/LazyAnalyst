@@ -1,0 +1,228 @@
+import os
+from datetime import datetime, timezone
+
+def ensure_writeups_folder_exists():
+    user_documents_folder = os.path.expanduser("~\Documents")
+    writeups_folder = os.path.join(user_documents_folder, "Writeups")
+    os.makedirs(writeups_folder, exist_ok=True)
+    return writeups_folder
+
+def prompt_for_time():
+    while True:
+        time_str = input("Enter the time (e.g., YYYY-MM-DD HH:MM:SS): ")
+        try:
+            local_time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+            time_zulu = local_time.replace(tzinfo=timezone.utc)
+            return time_zulu
+        except ValueError:
+            print("Invalid date format. Please try again.")
+
+def prompt_for_information(prompt_message):
+    while True:
+        value = input(prompt_message)
+        if value.lower() != 'n/a' or value.lower() == 'n':
+            return value
+        else:
+            print("Invalid input. Please try again.")
+
+def prompt_for_user_info():
+    username = prompt_for_information("Enter the username (or 'N/A' if not available): ")
+    if username != 'N/A':
+        user_role = input("Enter the user's role (Admin or Standard User): ")
+        user_audc_date = input("Enter the AUDC object date (e.g., YYYY-MM-DD): ")
+        user_action_consistency = input("Are the user's actions consistent with expected job duties? (Yes/No): ")
+        user_info = {
+            'Role': user_role,
+            'AudcDate': user_audc_date,
+            'ActionConsistency': user_action_consistency
+        }
+    else:
+        user_info = None
+    return username, user_info
+
+def prompt_for_log_sources():
+    log_sources = ['Fidelis', 'Suricata', 'ACAS', 'Sysmon', 'Winevent', 'Axiom', 'Trellix/ePO']
+    logs = []
+    log_support_info = {}
+    while True:
+        print("\nAvailable log sources:")
+        for i, source in enumerate(log_sources, start=1):
+            print(f"{i}. {source}")
+        print("Enter 'done' when finished selecting.")
+        selection = input("Select the log source for the action: ").lower()
+        if selection == 'done':
+            break
+        try:
+            index = int(selection) - 1
+            if 0 <= index < len(log_sources):
+                log_source = log_sources[index]
+                logs.append(log_source)
+                log_support = input(f"Enter additional info found in {log_source} log (press Enter if none): ")
+                log_support_info[log_source] = log_support
+            else:
+                print("Invalid selection. Please try again.")
+        except ValueError:
+            print("Invalid input. Please enter a number or 'done'.")
+
+    return logs, log_support_info
+
+def prompt_for_boolean(prompt_message):
+    while True:
+        choice = input(f"{prompt_message} (Y/N): ").upper()
+        if choice in ('Y', 'YES'):
+            return True
+        elif choice in ('N', 'NO'):
+            return False
+        else:
+            print("Invalid input. Please enter 'Y' for Yes or 'N' for No.")
+
+def prompt_for_recommended_actions():
+    print("\nRecommended Actions:")
+    print("1. No actions recommended")
+    print("2. Whitelist")
+    print("3. Open ticket")
+
+    while True:
+        choice = input("Select the recommended action: ")
+        if choice == '1':
+            return "No actions recommended"
+        elif choice == '2':
+            return "Whitelist"
+        elif choice == '3':
+            ticket_number = input("Enter the ticket number: ")
+            return f"Open ticket ({ticket_number})"
+        else:
+            print("Invalid selection. Please enter 1, 2, or 3.")
+
+def prompt_for_splunk_searches():
+    searches = {}
+    while True:
+        splunk_search = input("Enter a Splunk search (or 'done' if finished): ")
+        if splunk_search.lower() == 'done':
+            break
+        search_name = input("Enter a name for this search: ")
+        searches[search_name] = splunk_search
+
+    return searches
+
+def prompt_for_additional_notes():
+    additional_notes = input("Enter any additional notes you would like to include: ")
+    return additional_notes
+
+def generate_ioc_story(time_zulu, host, username, ip_address, parent_commandline, commandline, ioc_name,
+                       ioc_reason, command_explanation, logs, malicious, recommended_actions, user_info,
+                       event_seen_historically, ioc_ticket_number, ioc_ticket_date, log_support_info,
+                       splunk_searches, additional_notes):
+    story = f"On {time_zulu} {host} {username} {ip_address} executed {parent_commandline} which spawned {commandline}."
+    story += f" This triggered IOC {ioc_name}. {ioc_name} triggers when {ioc_reason}."
+    story += f" {commandline} performs the following {command_explanation}."
+    story += f" Based on surrounding {', '.join(logs)} logs, the action was {'malicious' if malicious else 'non-malicious'}."
+
+    for log_source, log_support in log_support_info.items():
+        story += f" Logs found from {log_source} {log_support} support this conclusion."
+
+    if user_info:
+        story += f" {username} is a {user_info['Role']} user and the actions are {'consistent' if user_info['ActionConsistency'] == 'Yes' else 'inconsistent'} with their expected job duties."
+
+    story += f" This activity {'has' if event_seen_historically else 'hasn’t'} been seen historically."
+    story += f" {recommended_actions}"
+
+    if splunk_searches:
+        story += "\n\nThe analyst utilized the following Splunk searches to accomplish this goal:\n"
+        for search_name, search_query in splunk_searches.items():
+            story += f"\n{search_name} - {search_query}"
+
+    story += f"\n\nThe analyst would also like to share the following notes: {additional_notes}"
+
+    return story
+
+def prompt_for_another_writeup():
+    while True:
+        choice = input("Would you like to perform another writeup? (Y/N): ").upper()
+        if choice in ('Y', 'YES'):
+            return True
+        elif choice in ('N', 'NO'):
+            return False
+        else:
+            print("Invalid input. Please enter 'Y' for Yes or 'N' for No.")
+
+def main():
+    print("SOC IOC Story Generator")
+    print("=======================")
+
+    writeups_folder = ensure_writeups_folder_exists()
+
+    while True:
+        # Prompt for time
+        time_zulu = prompt_for_time()
+
+        # Prompt for information about those involved
+        host = prompt_for_information("Enter the host name: ")
+        username, user_info = prompt_for_user_info()
+
+        # Prompt for information about the action performed
+        parent_commandline = prompt_for_information("Enter the parent commandline: ")
+        commandline = prompt_for_information("Enter the commandline: ")
+
+        # Prompt for IP address
+        ip_address = prompt_for_information("Enter the IP address: ")
+
+        # Prompt for IOC details
+        ioc_name = prompt_for_information("Enter the IOC name: ")
+        ioc_reason = prompt_for_information("Enter the reason for the IOC trigger: ")
+
+        # Prompt for command explanation
+        command_explanation = input("Enter the action performed by the commandline: ")
+
+        # Prompt for log sources and additional info
+        logs, log_support_info = prompt_for_log_sources()
+
+        # Prompt for whether the action is malicious
+        malicious = prompt_for_boolean("Is the action malicious?")
+
+        # Prompt for recommended actions
+        recommended_actions = prompt_for_recommended_actions()
+
+        # Prompt if the event has been seen historically
+        event_seen_historically = prompt_for_boolean("Has this event been seen historically?")
+
+        # Prompt for most recent IOC/ticket details if event has been seen historically
+        if event_seen_historically:
+            ioc_ticket_number = input("Enter the most recent IOC/ticket number: ")
+            ioc_ticket_date = input("Enter the date of the most recent IOC/ticket (e.g., YYYY-MM-DD): ")
+        else:
+            ioc_ticket_number = None
+            ioc_ticket_date = None
+
+        # Prompt for Splunk searches and additional info
+        splunk_searches = prompt_for_splunk_searches()
+
+        # Prompt for additional notes
+        additional_notes = prompt_for_additional_notes()
+
+        # Generate the IOC story
+        story = generate_ioc_story(time_zulu, host, username, ip_address, parent_commandline, commandline, ioc_name,
+                                   ioc_reason, command_explanation, logs, malicious, recommended_actions, user_info,
+                                   event_seen_historically, ioc_ticket_number, ioc_ticket_date, log_support_info,
+                                   splunk_searches, additional_notes)
+
+        print("\nGenerated IOC Story:")
+        print("--------------------")
+        print(story)
+
+        # Output the data to a text file
+        file_name = f"{time_zulu.strftime('%Y-%m-%d_%H-%M-%S')}_{ioc_name.replace(' ', '_')}.txt"
+        file_path = os.path.join(writeups_folder, file_name)
+        with open(file_path, 'w') as file:
+            file.write(story)
+
+        print(f"\nData has been written to the file: {file_path}")
+
+        # Prompt the user if they want to perform another writeup
+        if not prompt_for_another_writeup():
+            break
+
+    input("Press Enter to exit.")
+
+if __name__ == "__main__":
+    main()

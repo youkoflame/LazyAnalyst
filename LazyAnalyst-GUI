@@ -1,0 +1,221 @@
+import tkinter as tk
+from tkinter import messagebox
+
+#Toggle Entry for checkbox
+def toggle_entry(entry_widget, checkbox_var):
+    if checkbox_var.get():
+        entry_widget.config(state="normal")
+    else:
+        entry_widget.delete(0, tk.END)
+        entry_widget.config(state="disabled")
+
+
+# Function to generate the IOC story
+def generate_ioc_story(time_zulu, host, username, ip_address, parent_commandline, commandline, ioc_name,
+                       ioc_reason, command_explanation, logs, malicious, recommended_actions, user_info,
+                       event_seen_historically, ioc_ticket_number, ioc_ticket_date, log_support_info,
+                       splunk_searches, additional_notes):
+    story = f"On {time_zulu} {host} {username} {ip_address} executed {parent_commandline} which spawned {commandline}."
+    story += f" This triggered IOC {ioc_name}. {ioc_name} triggers when {ioc_reason}."
+    story += f" {commandline} performs the following {command_explanation}."
+    story += f" Based on surrounding {', '.join(logs)} logs, the action was {'malicious' if malicious else 'non-malicious'}."
+
+    for log_source, log_support in log_support_info.items():
+        story += f" Logs found from {log_source} {log_support} support this conclusion."
+
+    if user_info:
+        story += f" {username} is a {user_info['Role']} user and the actions are {'consistent' if user_info['ActionConsistency'] == 'Yes' else 'inconsistent'} with their expected job duties."
+
+    story += f" This activity {'has' if event_seen_historically else 'hasn’t'} been seen historically."
+    story += f" {recommended_actions}"
+
+    if splunk_searches:
+        story += "\n\nThe analyst utilized the following Splunk searches to accomplish this goal:\n"
+        for search_name, search_query in splunk_searches.items():
+            story += f"\n{search_name} - {search_query}"
+
+    story += f"\n\nThe analyst would also like to share the following notes: {additional_notes}"
+
+    # Return the generated story
+    return story
+
+# Function to save the writeup
+def save_writeup():
+    # Collect user inputs from Tkinter Entry widgets
+    time_zulu = entry_time.get()
+    host = entry_host.get()
+    username = entry_user.get()
+    ip_address = entry_ip.get()
+    parent_commandline = entry_parent_cmdline.get()
+    commandline = entry_cmdline.get()
+    ioc_name = entry_ioc_name.get()
+    ioc_reason = entry_ioc_reason.get()
+    command_explanation = entry_cmd_action.get()
+    log_source = entry_log_source.get()
+    malicious = var_malicious.get()
+    username = entry_username.get()
+    admin_status = var_admin_status.get()
+    event_seen_historically = var_action_history.get()
+    splunk_searches = entry_splunk_searches.get()
+    additional_notes = entry_analyst_notes.get()
+
+    # Create a dictionary to hold log support info (replace with your specific log sources and data)
+    log_support_info = {
+        "Fidelis": "such as xyz",
+        "Trellix/ePO": "such as abc",
+        "Sysmon": "such as pqr"
+	"Suricata": "IP Addresses"
+	"Winevent": "EIDs"
+	"Axiom": "POR"
+	"EnCase": "I Found"
+	"Leviathan": "I found"
+    }
+
+    # Create a dictionary to hold user info (replace with your specific user info)
+    user_info = {
+        "Role": "Admin",
+        "ActionConsistency": "Yes"
+    }
+
+    # Generate the IOC story using the function
+    story = generate_ioc_story(time_zulu, host, username, ip_address, parent_commandline, commandline, ioc_name,
+                               ioc_reason, command_explanation, log_support_info, malicious, recommended_actions,
+                               user_info, event_seen_historically, ioc_ticket_number, ioc_ticket_date,
+                               splunk_searches, additional_notes)
+
+    # Save the story to a text file
+    file_name = f"{time_zulu}_{ioc_name}_writeup.txt"
+    with open(file_name, "w") as f:
+        f.write(story)
+
+    # Show a success message
+    messagebox.showinfo("Writeup Saved", "The IOC writeup has been saved successfully.")
+
+# Create the Tkinter window
+window = tk.Tk()
+window.title("IOC Writeup Tool")
+
+# Add Tkinter Entry widgets and other components to collect user input
+# ... (code for input widgets)
+# Time
+lbl_time = tk.Label(window, text="Time (Zulu):")
+entry_time = tk.Entry(window)
+lbl_time.pack()
+entry_time.pack()
+
+# Hostname
+lbl_host = tk.Label(window, text="Hostname:")
+entry_host = tk.Entry(window)
+lbl_host.pack()
+entry_host.pack()
+
+# Username
+lbl_user = tk.Label(window, text="Username:")
+entry_user = tk.Entry(window)
+lbl_user.pack()
+entry_user.pack()
+
+# IP Address
+lbl_ip = tk.Label(window, text="IP Address:")
+entry_ip = tk.Entry(window)
+lbl_ip.pack()
+entry_ip.pack()
+
+# Parent Commandline
+lbl_parent_cmd = tk.Label(window, text="Parent Commandline:")
+entry_parent_cmdline = tk.Entry(window)
+lbl_parent_cmd.pack()
+entry_parent_cmdline.pack()
+
+# Commandline
+lbl_cmd = tk.Label(window, text="Commandline:")
+entry_cmdline = tk.Entry(window)
+lbl_cmd.pack()
+entry_cmdline.pack()
+
+# IOC Name
+lbl_ioc_name = tk.Label(window, text="IOC Name:")
+entry_ioc_name = tk.Entry(window)
+lbl_ioc_name.pack()
+entry_ioc_name.pack()
+
+# IOC Reason
+lbl_ioc_reason = tk.Label(window, text="IOC Reason:")
+entry_ioc_reason = tk.Entry(window)
+lbl_ioc_reason.pack()
+entry_ioc_reason.pack()
+
+# Commandline Actions
+lbl_cmd_action = tk.Label(window, text="Commandline Actions:")
+entry_cmd_action = tk.Entry(window)
+lbl_cmd_action.pack()
+entry_cmd_action.pack()
+
+# Log Source
+var_fidelis = tk.BooleanVar()
+chk_fidelis = tk.Checkbutton(window, text="Fidelis", variable=var_fidelis, command=lambda: toggle_entry(entry_fidelis, var_fidelis))
+chk_fidelis.pack()
+
+var_trellix = tk.BooleanVar()
+chk_trellix = tk.Checkbutton(window, text="Trellix/ePO", variable=var_trellix, command=lambda: toggle_entry(entry_trellix, var_trellix))
+chk_trellix.pack()
+
+var_sysmon = tk.BooleanVar()
+chk_sysmon = tk.Checkbutton(window, text="Sysmon", variable=var_sysmon, command=lambda: toggle_entry(entry_sysmon, var_sysmon))
+chk_sysmon.pack()
+
+var_EnCase = tk.BooleanVar()
+chk_EnCase = tk.Checkbutton(window, text="EnCase", variable=var_EnCase, command=lambda: toggle_entry(entry_EnCase, var_EnCase))
+
+
+# Malicious Checkbox
+var_malicious = tk.BooleanVar()
+chk_malicious = tk.Checkbutton(window, text="Malicious", variable=var_malicious)
+chk_malicious.pack()
+
+# Username
+lbl_username = tk.Label(window, text="Username:")
+entry_username = tk.Entry(window)
+lbl_username.pack()
+entry_username.pack()
+
+# Admin Status
+var_admin_status = tk.StringVar()
+rdo_admin = tk.Radiobutton(window, text="Admin", variable=var_admin_status, value="Admin")
+rdo_admin.pack()
+rdo_standard = tk.Radiobutton(window, text="Standard User", variable=var_admin_status, value="Standard User")
+rdo_standard.pack()
+
+# Action History
+var_action_history = tk.StringVar()
+rdo_has_history = tk.Radiobutton(window, text="Has Action History", variable=var_action_history, value="Has Action History")
+rdo_has_history.pack()
+rdo_no_history = tk.Radiobutton(window, text="No Action History", variable=var_action_history, value="No Action History")
+rdo_no_history.pack()
+
+# Splunk Searches
+lbl_splunk_searches = tk.Label(window, text="Splunk Searches:")
+entry_splunk_searches = tk.Entry(window)
+lbl_splunk_searches.pack()
+entry_splunk_searches.pack()
+
+# Analyst Notes
+lbl_analyst_notes = tk.Label(window, text="Analyst Notes:")
+entry_analyst_notes = tk.Entry(window)
+lbl_analyst_notes.pack()
+entry_analyst_notes.pack()
+
+# Log Support Info
+lbl_log_support = tk.Label(window, text="Log Support Info:")
+entry_log_support = tk.Entry(window)
+lbl_log_support.pack()
+entry_log_support.pack()
+
+
+
+# Create a button to generate and save the writeup
+btn_generate = tk.Button(window, text="Generate & Save Writeup", command=save_writeup)
+btn_generate.pack()
+
+# Run the Tkinter main loop
+window.mainloop()
